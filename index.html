@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coast: Interactive Brand Playbook</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font */
+            background-color: #f8fafc; /* Light gray background */
+        }
+        /* Style for tooltips/popups */
+        .tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 8px;
+            font-size: 12px;
+            background: #334155; /* Dark slate gray */
+            color: white;
+            border-radius: 6px;
+            pointer-events: none; /* Tooltip should not interfere with mouse events */
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+            min-width: 150px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        /* Style for chart points */
+        .dot {
+            cursor: pointer;
+            transition: r 0.2s ease-in-out, fill 0.2s ease-in-out;
+        }
+        .dot:hover {
+            r: 8px; /* Enlarge dot on hover */
+            fill: #f59e0b; /* Amber color on hover */
+        }
+        .dot.coast {
+            fill: #fbbf24; /* Amber-400 for Coast */
+            stroke: #b45309; /* Amber-700 stroke */
+            stroke-width: 2px;
+            r: 8px; /* Make Coast dot larger */
+        }
+        .dot.coast:hover {
+            r: 10px;
+        }
+        /* Section styling */
+        .section-card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            overflow: hidden; /* Ensure content stays within rounded corners */
+        }
+        h2 {
+            font-size: 1.75rem; /* Larger section titles */
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #1e293b; /* Slate-800 */
+            border-bottom: 2px solid #e2e8f0; /* Slate-200 */
+            padding-bottom: 0.5rem;
+        }
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            color: #334155; /* Slate-700 */
+        }
+        /* Custom styles for funnel */
+        .funnel-stage {
+            background-color: #f1f5f9; /* Slate-100 */
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #64748b; /* Slate-500 */
+            cursor: pointer;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .funnel-stage:hover {
+            background-color: #e2e8f0; /* Slate-200 */
+            border-left-color: #fbbf24; /* Amber-400 */
+        }
+        .funnel-details {
+            display: none; /* Hidden by default */
+            margin-top: 0.5rem;
+            padding-left: 1.5rem;
+            font-size: 0.9rem;
+            color: #475569; /* Slate-600 */
+        }
+        /* Timeline styling */
+        .timeline-item {
+            position: relative;
+            padding-left: 2.5rem; /* Space for icon */
+            padding-bottom: 1.5rem;
+            border-left: 2px solid #cbd5e1; /* Slate-300 */
+        }
+        .timeline-item:last-child {
+            border-left: 2px solid transparent; /* Remove line for last item */
+            padding-bottom: 0;
+        }
+        .timeline-icon {
+            position: absolute;
+            left: -11px; /* Center icon on the line */
+            top: 0;
+            background-color: #fbbf24; /* Amber-400 */
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .timeline-content h4 {
+            font-weight: 600;
+            color: #1e293b; /* Slate-800 */
+            margin-bottom: 0.25rem;
+        }
+        .timeline-content p {
+            font-size: 0.9rem;
+            color: #475569; /* Slate-600 */
+        }
+        /* Ensure charts are responsive */
+        svg {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl md:text-4xl font-bold text-center mb-8 text-slate-800">Coast: Interactive Brand Playbook</h1>
+
+        <div class="section-card">
+            <h2>1. Competitive Landscape</h2>
+            <p class="mb-4 text-slate-600">Visualizing Coast's position relative to competitors based on price and brand ethos. Hover over points for details.</p>
+            <div id="competitive-chart" class="relative min-h-[450px]"></div>
+            <div id="tooltip" class="tooltip"></div> <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                 <div class="bg-green-100 p-3 rounded-lg border border-green-200">
+                    <h4 class="font-semibold text-green-800">Affordable Modern Sustainable</h4>
+                    <p class="text-green-700">Brands focusing on accessible pricing with contemporary, eco-conscious designs.</p>
+                 </div>
+                 <div class="bg-blue-100 p-3 rounded-lg border border-blue-200">
+                    <h4 class="font-semibold text-blue-800">Premium Modern Sustainable</h4>
+                    <p class="text-blue-700">Brands offering high-end, modern designs with a strong sustainability commitment.</p>
+                 </div>
+                 <div class="bg-red-100 p-3 rounded-lg border border-red-200">
+                    <h4 class="font-semibold text-red-800">Affordable Traditional</h4>
+                    <p class="text-red-700">Brands with budget-friendly pricing, often rooted in traditional crafts or styles.</p>
+                 </div>
+                 <div class="bg-purple-100 p-3 rounded-lg border border-purple-200">
+                    <h4 class="font-semibold text-purple-800">Premium Traditional</h4>
+                    <p class="text-purple-700">High-priced brands emphasizing heritage, craftsmanship, and traditional aesthetics.</p>
+                 </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>2. Brand Identity & Positioning</h2>
+            <p class="mb-6 text-slate-600">Coast aims to carve a "coastal conscious" niche, blending modern sustainability with Bengali heritage. Click pillars for details.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+                <div class="pillar-card p-6 bg-emerald-50 rounded-lg border border-emerald-200 cursor-pointer hover:shadow-md transition-shadow" data-title="Sustainability" data-desc="Emphasizes modern, wearable sustainability without being preachy. Focus on eco-friendly materials like jute blends and upcycled canvas." data-tagline="Crafted for Conscious Living.">
+                    <i class="fas fa-leaf text-3xl text-emerald-500 mb-3"></i>
+                    <h3 class="font-semibold text-emerald-800">Sustainability</h3>
+                </div>
+                <div class="pillar-card p-6 bg-sky-50 rounded-lg border border-sky-200 cursor-pointer hover:shadow-md transition-shadow" data-title="Utility" data-desc="Focuses on practical design for real-world applications. Bags designed for specific needs like laptops, errands, or getaways." data-tagline="">
+                    <i class="fas fa-briefcase text-3xl text-sky-500 mb-3"></i>
+                    <h3 class="font-semibold text-sky-800">Utility</h3>
+                </div>
+                 <div class="pillar-card p-6 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:shadow-md transition-shadow" data-title="Heritage" data-desc="Celebrates Bengal's artisan heritage with a global design perspective. Incorporates local crafts and materials with modern aesthetics." data-tagline="Not Just Jute. A Journey.">
+                    <i class="fas fa-landmark text-3xl text-amber-500 mb-3"></i>
+                    <h3 class="font-semibold text-amber-800">Heritage</h3>
+                </div>
+                <div class="pillar-card p-6 bg-rose-50 rounded-lg border border-rose-200 cursor-pointer hover:shadow-md transition-shadow" data-title="Moodboard: Coastal Calm" data-desc="Captures the essence of 'coastal calm' to evoke peace, escape, and slow moments. Visual language uses oceanic tones and soft curves." data-tagline="Carry Calm. Carry Coast.">
+                    <i class="fas fa-water text-3xl text-rose-500 mb-3"></i>
+                    <h3 class="font-semibold text-rose-800">Coastal Calm</h3>
+                </div>
+            </div>
+            <div id="pillar-details" class="mt-6 p-4 bg-slate-100 rounded-lg min-h-[100px] text-slate-700 hidden">
+                <h4 id="pillar-title" class="font-bold text-lg mb-2 text-slate-800"></h4>
+                <p id="pillar-desc" class="mb-2"></p>
+                <p id="pillar-tagline" class="italic text-slate-600"></p>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>3. Product Strategy & SKUs</h2>
+            <p class="mb-4 text-slate-600">Focusing on the ₹800-₹2,500 sweet spot with utility-driven designs and sustainable materials. Hover over SKUs for price ranges.</p>
+            <div class="mb-6 p-4 bg-amber-100 border border-amber-200 rounded-lg">
+                <h3 class="text-amber-800 !mt-0 !mb-1">Design Disruption Strategy</h3>
+                <p class="text-sm text-amber-700">Shift from boxy stereotypes to intentional, practical shapes. Use jute blends, kilim cotton, upcycled canvas. Oceanic tones, soft curves, purposeful design (e.g., laptop fit, errand-ready).</p>
+            </div>
+            <h3>High-Potential SKUs</h3>
+             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹750–₹1,200">
+                    <i class="fas fa-laptop text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Laptop Sleeves</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹750–₹1,200</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹850–₹1,500">
+                    <i class="fas fa-shopping-bag text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Jute Box Slings</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹850–₹1,500</div>
+                </div>
+                <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹300–₹600">
+                    <i class="fas fa-化粧ポーチ text-2xl text-slate-500 mb-2"></i> <i class="fas fa-suitcase-rolling text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Makeup Pouches & Organisers</p>
+                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹300–₹600</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹150–₹350">
+                    <i class="fas fa-gift text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Potlis & Favour Bags</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹150–₹350</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹200–₹400">
+                    <i class="fas fa-book-open text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Jute Covered Journals</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹200–₹400</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹1,200–₹2,200">
+                    <i class="fas fa-hiking text-2xl text-slate-500 mb-2"></i> <i class="fas fa-backpack text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Jute Backpacks</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹1,200–₹2,200</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹150–₹500">
+                    <i class="fas fa-home text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Hemp Home Accessories</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹150–₹500</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹850–₹1,500">
+                     <i class="fas fa-palette text-2xl text-slate-500 mb-2"></i> <p class="text-sm font-medium text-slate-700">Printed/Embroidered</p>
+                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹850–₹1,500</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹200–₹450">
+                    <i class="fas fa-wallet text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Wallets & Small Acc.</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹200–₹450</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹1,200–₹2,000">
+                    <i class="fas fa-gem text-2xl text-slate-500 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-700">Boho Bag/Jewelry Combos</p>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹1,200–₹2,000</div>
+                </div>
+                 <div class="sku-card p-3 bg-gray-50 rounded-lg border border-gray-200 text-center relative group" data-price="₹500–₹1,500">
+                     <i class="fas fa-image text-2xl text-slate-500 mb-2"></i> <p class="text-sm font-medium text-slate-700">Jute Artifacts/Wall</p>
+                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max px-2 py-1 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">₹500–₹1,500</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>4. Launch Timeline (May - Oct)</h2>
+            <p class="mb-6 text-slate-600">Key milestones and activities for the first six months.</p>
+            <div class="relative">
+                <div class="timeline-item">
+                    <div class="timeline-icon"><i class="fas fa-seedling text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>May: Foundation</h4>
+                        <p>Finalize 8-12 SKUs, Source materials, Build visual system, Set up social channels, First photoshoot.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon"><i class="fas fa-bullhorn text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>June: Content & Soft Launch Prep</h4>
+                        <p>Collaborate with micro-creators, Book venue, Roll out brand story content, Prepare order flow, Launch UGC prompt.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-icon"><i class="fas fa-rocket text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>July: Soft Launch (Beta)</h4>
+                        <p>Drop first 6-8 bags on IG, Respond to DMs/WA, Ship first 150 orders, Capture unboxing, Gather feedback via WA, Refine content cadence.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                     <div class="timeline-icon"><i class="fas fa-sync-alt text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>August: Iterate Based on Feedback</h4>
+                        <p>Introduce new variants, Poll users, Upgrade packaging, Partner with non-Kolkata influencers, Target 350-400 orders (DM/WA).</p>
+                    </div>
+                </div>
+                 <div class="timeline-item">
+                     <div class="timeline-icon"><i class="fas fa-laptop-code text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>September: Website Build Begins</h4>
+                        <p>Hire Shopify dev, Re-shoot product images, Write SEO descriptions, Implement reviews/WA widget, Set up Klaviyo.</p>
+                    </div>
+                </div>
+                 <div class="timeline-item">
+                     <div class="timeline-icon"><i class="fas fa-check-circle text-xs"></i></div>
+                    <div class="timeline-content">
+                        <h4>October: Website Launch</h4>
+                        <p>Launch Shopify site (target: 500 orders/month), Ensure reviews/UGC, Launch seasonal collection, Soft launch loyalty program.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>5. Marketing & Sales Funnel</h2>
+            <p class="mb-6 text-slate-600">Strategy to guide customers from discovery to purchase and beyond. Click stages for tactics.</p>
+            <div class="funnel-container">
+                <div class="funnel-stage" data-stage="Awareness">
+                    <h4 class="font-semibold text-slate-800">1. Awareness <i class="fas fa-chevron-down text-xs float-right mt-1"></i></h4>
+                    <div class="funnel-details">
+                        <p><strong>Tactics:</strong> Influencer-led reels (DM to Order), Offline pop-ups (Kolkata).</p>
+                        <p><strong>Tools:</strong> Meta Lead Ads (Target CPL: ₹5–₹10, 50-100 leads/mo).</p>
+                    </div>
+                </div>
+                <div class="funnel-stage" data-stage="Interest">
+                    <h4 class="font-semibold text-slate-800">2. Interest <i class="fas fa-chevron-down text-xs float-right mt-1"></i></h4>
+                    <div class="funnel-details">
+                        <p><strong>Tactics:</strong> Reels ("What fits inside?"), IG Story polls ("Pick next color"), Artisan BTS shots.</p>
+                        <p><strong>Tools:</strong> Instagram Stories, Reels.</p>
+                    </div>
+                </div>
+                <div class="funnel-stage" data-stage="Conversion">
+                    <h4 class="font-semibold text-slate-800">3. Conversion <i class="fas fa-chevron-down text-xs float-right mt-1"></i></h4>
+                    <div class="funnel-details">
+                        <p><strong>Tactics:</strong> WhatsApp CTAs, Smart replies, UPI/GPay links, Razorpay integration, Urgency captions ("Only 10 left").</p>
+                        <p><strong>Tools:</strong> WhatsApp Business, Razorpay, Instagram Posts.</p>
+                    </div>
+                </div>
+                <div class="funnel-stage" data-stage="Retention">
+                    <h4 class="font-semibold text-slate-800">4. Retention <i class="fas fa-chevron-down text-xs float-right mt-1"></i></h4>
+                    <div class="funnel-details">
+                        <p><strong>Tactics:</strong> Thank-you cards + seed tags, WA follow-up for review, ₹100 off next order.</p>
+                         <p><strong>Tools:</strong> Klaviyo (Target: 38% Open, 15-20% Cart Recovery), WhatsApp.</p>
+                    </div>
+                </div>
+                <div class="funnel-stage" data-stage="Community">
+                     <h4 class="font-semibold text-slate-800">5. Community <i class="fas fa-chevron-down text-xs float-right mt-1"></i></h4>
+                    <div class="funnel-details">
+                        <p><strong>Tactics:</strong> "Coast Crew" WA community (sneak peeks, giveaways), Weekly IG customer spotlight (#CarryCoast).</p>
+                        <p><strong>Tools:</strong> WhatsApp Groups, Instagram Features.</p>
+                    </div>
+                </div>
+            </div>
+             <h3 class="mt-6">Budget Allocation (First 6 Months)</h3>
+             <div class="w-full bg-gray-200 rounded-full h-6 dark:bg-gray-700 overflow-hidden flex">
+                <div class="bg-emerald-500 h-6 text-xs font-medium text-emerald-100 text-center p-1 leading-none" style="width: 40%" title="40% Sampling, Packaging, Content Shoots">Sampling/Content (40%)</div>
+                <div class="bg-sky-500 h-6 text-xs font-medium text-sky-100 text-center p-1 leading-none" style="width: 30%" title="30% Ads & Influencer Barters">Ads/Influencers (30%)</div>
+                <div class="bg-amber-500 h-6 text-xs font-medium text-amber-100 text-center p-1 leading-none" style="width: 20%" title="20% Platform, Site, Tech Tools">Tech/Platform (20%)</div>
+                <div class="bg-rose-500 h-6 text-xs font-medium text-rose-100 text-center p-1 leading-none" style="width: 10%" title="10% Founder Float (Trial/Test/Gifting Buffer)">Founder Float (10%)</div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>6. Content Strategy</h2>
+            <p class="mb-4 text-slate-600">Leveraging competitor insights to build a unique and engaging content mix for Coast. Hover over recommendations for details.</p>
+            <h3>Core Content Buckets</h3>
+            <div class="flex flex-wrap gap-2 mb-6">
+                <span class="bg-blue-100 text-blue-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-full">Product in Use (Reels)</span>
+                <span class="bg-green-100 text-green-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-full">Artisan BTS</span>
+                <span class="bg-yellow-100 text-yellow-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-full">New Drop Teasers</span>
+                <span class="bg-purple-100 text-purple-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-full">Customer Spotlights</span>
+                <span class="bg-pink-100 text-pink-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded-full">Sustainability Notes</span>
+            </div>
+
+            <h3>Weekly Content Recommendations</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 group relative">
+                    <h4 class="font-semibold text-slate-700">Product Studio Shots (2x/week)</h4>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        Natural light, ivory/stone backdrops, focus on kilim/jute textures. Clear, aesthetic visuals inspired by Akiiko.
+                    </div>
+                 </div>
+                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 group relative">
+                    <h4 class="font-semibold text-slate-700">Lifestyle Reels (1x/week)</h4>
+                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        POV style (e.g., packing for a trip), showing real use. Light, personal feel inspired by Zouk. Use ambient audio like Burlap People.
+                    </div>
+                 </div>
+                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 group relative">
+                    <h4 class="font-semibold text-slate-700">UGC / Creator Post (1x/week)</h4>
+                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        Feature Kolkata micro-influencers or early customers using Coast bags in local settings (cafes, markets). Build social proof.
+                    </div>
+                 </div>
+                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 group relative md:col-span-1">
+                    <h4 class="font-semibold text-slate-700">Story Highlights (Ongoing)</h4>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        Pin key info: FAQ, Making Process, First Drop details, Customer Love/Reviews. Easy access for new visitors.
+                    </div>
+                 </div>
+                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 group relative md:col-span-2">
+                    <h4 class="font-semibold text-slate-700">Founder Voice / BTS (1x / bi-weekly)</h4>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
+                        Reels showing packaging, sharing early user reviews, behind-the-scenes glimpses. Personal touch inspired by Maisha by Aisha. Focus on storytelling over polish.
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Competitive Landscape Chart ---
+        const competitorData = [
+            // Data format: { name: "Brand", price: X, ethos: Y, usp: "...", products: "...", range: "..." }
+            // Price: Higher number = more premium
+            // Ethos: Higher number = more modern/sustainable
+            { name: "Zouk", city: "Mumbai", price: 2.5, ethos: 7, usp: "100% vegan, PETA-approved, Indian prints", products: "Handbags, laptop bags, wallets, footwear", range: "₹800-₹3,000", website: "zouk.co.in" },
+            { name: "Maisha by Aisha", city: "Ahmedabad", price: 3.5, ethos: 5, usp: "Boho artisanal chic, embroidered", products: "Totes, slings, home accessories", range: "₹1,300-₹2,600", website: "maishabyaisha.com" },
+            { name: "The Burlap People", city: "Kolkata", price: 6.0, ethos: 4, usp: "Premium slow fashion, rustic minimalism", products: "Totes, duffels, backpacks", range: "₹3,000-₹8,800", website: "theburlappeople.com" },
+            { name: "akiiko", city: "Chennai", price: 1.5, ethos: 6, usp: "Utility-first, minimalist, organic cotton", products: "Pouches, sleeves, totes", range: "₹450-₹1,000", website: "akiiko.com" },
+            { name: "MamaSita", city: "Delhi", price: 1.8, ethos: 4, usp: "Festive-first, bold colors, embellished jute", products: "Potlis, clutches, gifting bags", range: "₹300-₹2,000", website: "mamasitaindia.com" },
+            { name: "Dhaaga Life", city: "Mumbai", price: 5.0, ethos: 6, usp: "Purpose-driven fashion, natural materials", products: "Clothing, bags, accessories", range: "₹1,200-₹7,800", website: "dhaagalife.com" },
+            { name: "Studio Beej", city: "Mumbai", price: 7.0, ethos: 9, usp: "Luxury vegan (cork, cactus leather)", products: "Handbags, wallets, belts", range: "₹2,000-₹15,000", website: "studiobeej.com" },
+            { name: "Eske Paris", city: "Mumbai", price: 6.5, ethos: 3, usp: "European-styled Indian luxury leather", products: "Leather bags, wallets, accessories", range: "₹1,800-₹7,500", website: "eské.in" },
+            // Coast's position
+            { name: "Coast ☆", city: "Kolkata (Projected)", price: 3.0, ethos: 8, usp: "Coastal conscious: Utility, soft minimalism, Bengali craft", products: "Slings, Totes, Sleeves, Pouches, etc.", range: "₹800-₹2,500 (Target)", website: "N/A" }
+        ];
+
+        const margin = { top: 50, right: 30, bottom: 60, left: 60 };
+        const container = document.getElementById('competitive-chart');
+        // Use ResizeObserver to make the chart responsive
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const { width, height } = entry.contentRect;
+                drawChart(width, Math.max(height, 450)); // Ensure minimum height
+            }
+        });
+
+        resizeObserver.observe(container);
+
+        function drawChart(width, height) {
+            // Remove existing SVG to redraw
+            d3.select(container).select("svg").remove();
+
+            const svg = d3.select(container)
+                .append("svg")
+                .attr("viewBox", `0 0 ${width} ${height}`) // Use viewBox for responsiveness
+                .attr("preserveAspectRatio", "xMidYMid meet")
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            // Scales
+            const xScale = d3.scaleLinear()
+                .domain([0, 8]) // Price axis range
+                .range([0, innerWidth]);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, 10]) // Brand Ethos axis range
+                .range([innerHeight, 0]); // Inverted for typical chart layout
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale);
+            const yAxis = d3.axisLeft(yScale);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(xAxis)
+                .selectAll("text")
+                    .style("text-anchor", "end")
+                    .attr("dx", "-.8em")
+                    .attr("dy", ".15em")
+                    .attr("transform", "rotate(-45)");
+
+            svg.append("g")
+                .call(yAxis);
+
+            // Axis Labels
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("x", innerWidth / 2)
+                .attr("y", innerHeight + margin.bottom - 10)
+                .style("font-size", "12px")
+                .text("Price (Affordable → Premium)");
+
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight / 2)
+                .attr("y", -margin.left + 20)
+                 .style("font-size", "12px")
+                .text("Brand Ethos (Traditional Heritage → Modern Sustainable)");
+
+            // Quadrant Lines
+            const midPrice = 4;
+            const midEthos = 5;
+            svg.append("line") // Vertical line
+               .attr("x1", xScale(midPrice))
+               .attr("y1", 0)
+               .attr("x2", xScale(midPrice))
+               .attr("y2", innerHeight)
+               .attr("stroke", "#cbd5e1") // Slate-300
+               .attr("stroke-dasharray", "4");
+
+            svg.append("line") // Horizontal line
+               .attr("x1", 0)
+               .attr("y1", yScale(midEthos))
+               .attr("x2", innerWidth)
+               .attr("y2", yScale(midEthos))
+               .attr("stroke", "#cbd5e1") // Slate-300
+               .attr("stroke-dasharray", "4");
+
+            // Tooltip
+            const tooltip = d3.select("#tooltip");
+
+            // Dots
+            svg.selectAll(".dot")
+                .data(competitorData)
+                .enter()
+                .append("circle")
+                .attr("class", d => d.name.includes("Coast") ? "dot coast" : "dot")
+                .attr("cx", d => xScale(d.price))
+                .attr("cy", d => yScale(d.ethos))
+                .attr("r", 6) // Base radius
+                .style("fill", d => d.name.includes("Coast") ? "#fbbf24" : "#3b82f6") // Blue-500 for others
+                .style("opacity", 0.8)
+                .on("mouseover", (event, d) => {
+                    tooltip.transition().duration(200).style("opacity", .9);
+                    tooltip.html(`
+                        <strong class="text-amber-300">${d.name}</strong><br/>
+                        <span class="text-xs text-slate-300">${d.city}</span><br/>
+                        <strong>USP:</strong> ${d.usp}<br/>
+                        <strong>Products:</strong> ${d.products}<br/>
+                        <strong>Price:</strong> ${d.range}
+                        ${d.website !== 'N/A' ? `<br/><a href="http://${d.website}" target="_blank" class="text-sky-400 hover:text-sky-300 text-xs">Website</a>` : ''}
+                    `)
+                    // Position tooltip near the mouse pointer
+                    // Adjust positioning to prevent going off-screen
+                    const [mouseX, mouseY] = d3.pointer(event, document.body);
+                    const tooltipWidth = tooltip.node().offsetWidth;
+                    const tooltipHeight = tooltip.node().offsetHeight;
+                    const buffer = 15; // Distance from cursor
+
+                    let left = mouseX + buffer;
+                    let top = mouseY - tooltipHeight - buffer; // Position above cursor by default
+
+                    // Adjust if tooltip goes off the right edge
+                    if (left + tooltipWidth > window.innerWidth) {
+                        left = mouseX - tooltipWidth - buffer;
+                    }
+                    // Adjust if tooltip goes off the top edge
+                    if (top < 0) {
+                        top = mouseY + buffer; // Position below cursor
+                    }
+
+                    tooltip.style("left", left + "px")
+                           .style("top", top + "px");
+
+                    // Highlight the dot
+                    d3.select(event.currentTarget).transition().duration(100).attr("r", d.name.includes("Coast") ? 10 : 8).style("opacity", 1);
+                })
+                .on("mouseout", (event, d) => {
+                    tooltip.transition().duration(500).style("opacity", 0);
+                    // Restore dot size
+                     d3.select(event.currentTarget).transition().duration(100).attr("r", d.name.includes("Coast") ? 8 : 6).style("opacity", 0.8);
+                });
+        }
+
+        // Initial draw
+        // Wait for the container to have dimensions
+        setTimeout(() => {
+            const initialWidth = container.clientWidth;
+            const initialHeight = 450; // Initial fixed height
+            drawChart(initialWidth, initialHeight);
+        }, 100);
+
+
+        // --- Brand Identity Pillars ---
+        const pillarCards = document.querySelectorAll('.pillar-card');
+        const pillarDetailsDiv = document.getElementById('pillar-details');
+        const pillarTitle = document.getElementById('pillar-title');
+        const pillarDesc = document.getElementById('pillar-desc');
+        const pillarTagline = document.getElementById('pillar-tagline');
+
+        pillarCards.forEach(card => {
+            card.addEventListener('click', () => {
+                // Remove active style from others
+                pillarCards.forEach(c => c.classList.remove('ring-2', 'ring-offset-2', 'ring-amber-400'));
+                // Add active style to clicked card
+                card.classList.add('ring-2', 'ring-offset-2', 'ring-amber-400');
+
+                pillarTitle.textContent = card.dataset.title;
+                pillarDesc.textContent = card.dataset.desc;
+                pillarTagline.textContent = card.dataset.tagline || ''; // Show tagline if available
+                pillarDetailsDiv.classList.remove('hidden'); // Show the details section
+            });
+        });
+
+        // --- Marketing Funnel Interaction ---
+        const funnelStages = document.querySelectorAll('.funnel-stage');
+        funnelStages.forEach(stage => {
+            stage.addEventListener('click', () => {
+                const details = stage.querySelector('.funnel-details');
+                const icon = stage.querySelector('i');
+
+                // Toggle display
+                const isVisible = details.style.display === 'block';
+                details.style.display = isVisible ? 'none' : 'block';
+
+                // Toggle icon direction
+                icon.classList.toggle('fa-chevron-down', isVisible);
+                icon.classList.toggle('fa-chevron-up', !isVisible);
+
+                // Optional: Close other stages when one is opened
+                // funnelStages.forEach(otherStage => {
+                //     if (otherStage !== stage) {
+                //         otherStage.querySelector('.funnel-details').style.display = 'none';
+                //         otherStage.querySelector('i').classList.remove('fa-chevron-up');
+                //         otherStage.querySelector('i').classList.add('fa-chevron-down');
+                //     }
+                // });
+            });
+        });
+
+    </script>
+
+</body>
+</html>
